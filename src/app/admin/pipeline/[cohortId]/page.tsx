@@ -106,8 +106,20 @@ export default function LeaderboardPage() {
             await updateDoc(doc(firestore, 'cohorts', cohort.id), {
                 statuses: updatedStatuses
             });
-            toast({ title: "Status Updated", description: `Candidate marked as ${newStatus}.` });
+
+            // Create notification for the candidate
+            const notificationRef = collection(firestore, `users/${candidateId}/notifications`);
+            await addDoc(notificationRef, {
+                title: "Application Status Update",
+                message: `Your application status for "${cohort.name}" has been updated to: ${newStatus}.`,
+                link: '/dashboard/applications',
+                isRead: false,
+                createdAt: Date.now()
+            });
+
+            toast({ title: "Status Updated", description: `Candidate marked as ${newStatus} and notified.` });
         } catch (error) {
+            console.error("Error updating status:", error);
             toast({ title: "Update Failed", variant: "destructive" });
         } finally {
             setIsUpdatingStatus(null);

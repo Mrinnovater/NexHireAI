@@ -8,13 +8,13 @@ import { initializeFirebase } from '@/firebase';
 import type { Cohort, AssessmentAttempt, VoiceInterviewAttempt } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle2, Circle, Clock, Lock, Play, ChevronRight, Briefcase } from 'lucide-react';
+import { Loader2, CheckCircle2, Circle, Clock, Lock, Play, ChevronRight, Briefcase, XCircle, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
-type StageStatus = 'completed' | 'current' | 'pending' | 'locked';
+type StageStatus = 'completed' | 'current' | 'pending' | 'locked' | 'rejected' | 'hired';
 
 interface ApplicationStage {
     id: string;
@@ -52,6 +52,8 @@ export default function MyApplicationsPage() {
                 const isInterviewDone = interviewAttempt?.status === 'evaluated';
                 const isInterviewInvited = !!interviewAttempt;
 
+                const recruiterDecision = cohort.statuses?.[user.id];
+
                 const stages: ApplicationStage[] = [
                     {
                         id: 'application',
@@ -76,10 +78,12 @@ export default function MyApplicationsPage() {
                         actionLink: interviewAttempt ? `/candidate/interview/${interviewAttempt.id}` : undefined
                     },
                     {
-                        id: 'hr_interview',
-                        title: 'HR Interview',
-                        description: 'Final round with the human resources team.',
-                        status: cohort.statuses?.[user.id] === 'Hired' ? 'completed' : 'locked'
+                        id: 'final_decision',
+                        title: 'Final Decision',
+                        description: recruiterDecision 
+                            ? `The recruiter has marked your application as: ${recruiterDecision}`
+                            : (isInterviewDone ? 'The recruiter is currently reviewing your performance and will make a final decision soon.' : 'Reach the final stage by completing your assigned assessments.'),
+                        status: recruiterDecision === 'Rejected' ? 'rejected' : (recruiterDecision === 'Hired' || recruiterDecision === 'Shortlisted' ? 'hired' : (isInterviewDone ? 'current' : 'locked'))
                     }
                 ];
 
@@ -87,7 +91,8 @@ export default function MyApplicationsPage() {
                     id: cohort.id,
                     jobTitle: cohort.name,
                     company: "Recruiter Hub",
-                    stages
+                    stages,
+                    overallStatus: recruiterDecision || 'Active'
                 };
             }));
             setApplications(appData);
@@ -126,7 +131,9 @@ export default function MyApplicationsPage() {
                                         <CardTitle className="text-2xl">{app.jobTitle}</CardTitle>
                                         <CardDescription>{app.company}</CardDescription>
                                     </div>
-                                    <Badge variant="secondary">Active Application</Badge>
+                                    <Badge variant={app.overallStatus === 'Rejected' ? 'destructive' : (app.overallStatus === 'Hired' || app.overallStatus === 'Shortlisted' ? 'default' : 'secondary')}>
+                                        {app.overallStatus}
+                                    </Badge>
                                 </div>
                             </CardHeader>
                             <CardContent className="pt-8">
@@ -139,12 +146,14 @@ export default function MyApplicationsPage() {
                                             <div key={stage.id} className="flex gap-6 relative">
                                                 <div className={cn(
                                                     "h-12 w-12 rounded-full flex items-center justify-center shrink-0 border-4 bg-background",
-                                                    stage.status === 'completed' ? "border-green-500 text-green-500" :
+                                                    (stage.status === 'completed' || stage.status === 'hired') ? "border-green-500 text-green-500" :
+                                                    stage.status === 'rejected' ? "border-red-500 text-red-500" :
                                                     stage.status === 'current' ? "border-primary text-primary animate-pulse" :
                                                     stage.status === 'pending' ? "border-amber-500 text-amber-500" :
                                                     "border-muted text-muted-foreground"
                                                 )}>
-                                                    {stage.status === 'completed' ? <CheckCircle2 /> : 
+                                                    {(stage.status === 'completed' || stage.status === 'hired') ? <CheckCircle2 /> : 
+                                                     stage.status === 'rejected' ? <XCircle /> :
                                                      stage.status === 'current' ? <Play className="h-5 w-5 fill-current" /> :
                                                      stage.status === 'pending' ? <Clock /> : <Lock className="h-5 w-5" />}
                                                 </div>
@@ -154,7 +163,8 @@ export default function MyApplicationsPage() {
                                                         <div>
                                                             <h3 className={cn(
                                                                 "text-xl font-bold",
-                                                                stage.status === 'locked' && "text-muted-foreground"
+                                                                stage.status === 'locked' && "text-muted-foreground",
+                                                                stage.status === 'rejected' && "text-red-500"
                                                             )}>{stage.title}</h3>
                                                             <p className="text-muted-foreground text-sm max-w-md">{stage.description}</p>
                                                         </div>

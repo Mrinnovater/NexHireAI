@@ -33,6 +33,7 @@ export default function LeaderboardPage() {
     const [cohort, setCohort] = useState<Cohort | null>(null);
     const [leaderboard, setLeaderboard] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
     
     // Job/Interview State
     const [jobs, setJobs] = useState<JobPosition[]>([]);
@@ -96,6 +97,22 @@ export default function LeaderboardPage() {
         });
         return () => unsub();
     }, [firestore, cohortId, fetchLeaderboard]);
+
+    const handleUpdateStatus = async (candidateId: string, newStatus: string) => {
+        if (!firestore || !cohort) return;
+        setIsUpdatingStatus(candidateId);
+        try {
+            const updatedStatuses = { ...(cohort.statuses || {}), [candidateId]: newStatus };
+            await updateDoc(doc(firestore, 'cohorts', cohort.id), {
+                statuses: updatedStatuses
+            });
+            toast({ title: "Status Updated", description: `Candidate marked as ${newStatus}.` });
+        } catch (error) {
+            toast({ title: "Update Failed", variant: "destructive" });
+        } finally {
+            setIsUpdatingStatus(null);
+        }
+    };
 
     const handleInviteToInterview = async () => {
         if (!firestore || !cohort || !selectedJobId) return;
@@ -177,6 +194,7 @@ export default function LeaderboardPage() {
                                 <TableHead>Candidate</TableHead>
                                 <TableHead className="text-center">Tech Score</TableHead>
                                 <TableHead className="text-center">AI Interview</TableHead>
+                                <TableHead className="text-center">Decision</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -217,6 +235,30 @@ export default function LeaderboardPage() {
                                                 </Badge>
                                             </Button>
                                         ) : '-'}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <Select 
+                                            value={entry.status} 
+                                            onValueChange={(val) => handleUpdateStatus(entry.user.id, val)}
+                                            disabled={isUpdatingStatus === entry.user.id}
+                                        >
+                                            <SelectTrigger className={cn(
+                                                "w-[140px] mx-auto h-8 text-xs font-bold uppercase tracking-tighter",
+                                                entry.status === 'Shortlisted' && "bg-green-500/10 text-green-500 border-green-500/20",
+                                                entry.status === 'Waiting' && "bg-amber-500/10 text-amber-500 border-amber-500/20",
+                                                entry.status === 'Rejected' && "bg-red-500/10 text-red-500 border-red-500/20",
+                                                entry.status === 'Hired' && "bg-primary/10 text-primary border-primary/20"
+                                            )}>
+                                                {isUpdatingStatus === entry.user.id ? <Loader2 className="h-3 w-3 animate-spin mx-auto" /> : <SelectValue />}
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Under Review">Under Review</SelectItem>
+                                                <SelectItem value="Shortlisted" className="text-green-500">Shortlisted</SelectItem>
+                                                <SelectItem value="Waiting" className="text-amber-500">Waiting</SelectItem>
+                                                <SelectItem value="Rejected" className="text-red-500">Rejected</SelectItem>
+                                                <SelectItem value="Hired">Mark as Hired</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="sm" onClick={() => router.push(`/admin/candidates/${entry.user.id}`)}>View Profile</Button>

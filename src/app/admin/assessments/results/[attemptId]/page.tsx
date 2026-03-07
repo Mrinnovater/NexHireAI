@@ -42,7 +42,7 @@ export default function AdminAssessmentResultPage() {
                     const techData = techSnap.data() as AssessmentAttempt;
                     setCurrentAttempt(techData);
 
-                    // Fetch Interview Attempt for this cohort if it exists
+                    // Fetch Interview Attempt for this candidate if it exists
                     const interviewQ = query(collection(firestore, 'interviewAttempts'), where('candidateId', '==', userId), orderBy('completedAt', 'desc'));
                     const interviewSnap = await getDocs(interviewQ);
                     if (!interviewSnap.empty) {
@@ -78,22 +78,22 @@ export default function AdminAssessmentResultPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card>
+                <Card className="bg-card/60 backdrop-blur-sm border-border/20 shadow-lg">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><BarChart /> Technical Assessment</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-primary"><BarChart className="h-5 w-5" /> Technical Assessment</CardTitle>
                         <CardDescription>MCQ & Coding Results</CardDescription>
                     </CardHeader>
                     <CardContent className="text-center py-12">
-                        <p className="text-sm text-muted-foreground">Final Score</p>
-                        <p className="text-7xl font-bold text-primary">{Math.round(currentAttempt?.finalScore || 0)}%</p>
+                        <p className="text-sm text-muted-foreground uppercase tracking-widest font-bold mb-2">Final Score</p>
+                        <p className="text-8xl font-black text-primary drop-shadow-[0_0_15px_rgba(var(--primary),0.3)]">{Math.round(currentAttempt?.finalScore || 0)}%</p>
                     </CardContent>
                 </Card>
 
                 {interviewAttempt && interviewAttempt.status === 'evaluated' && (
-                    <Card>
+                    <Card className="bg-card/60 backdrop-blur-sm border-border/20 shadow-lg">
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Mic /> AI Voice Interview</CardTitle>
-                            <CardDescription>Evaluation of verbal skills and confidence</CardDescription>
+                            <CardTitle className="flex items-center gap-2 text-primary"><Mic className="h-5 w-5" /> AI Voice Interview</CardTitle>
+                            <CardDescription>Multi-dimensional verbal skills report</CardDescription>
                         </CardHeader>
                         <CardContent className="h-[250px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -110,31 +110,65 @@ export default function AdminAssessmentResultPage() {
             </div>
 
             {interviewAttempt?.evaluation && (
-                <Card className="bg-primary/5 border-primary/20">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><BrainCircuit /> AI Interview Summary</CardTitle>
+                <Card className="bg-primary/5 border-primary/20 shadow-xl">
+                    <CardHeader className="bg-primary/10 border-b border-primary/20">
+                        <CardTitle className="flex items-center gap-2 text-primary"><BrainCircuit className="h-6 w-6" /> Detailed Interview Evaluation</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="p-4 bg-background rounded-lg border">
-                            <p className="font-semibold text-lg mb-2">Recommendation: <span className={cn(
-                                interviewAttempt.evaluation.final_recommendation === 'Strong Hire' ? 'text-green-500' : 
-                                interviewAttempt.evaluation.final_recommendation === 'Reject' ? 'text-red-500' : 'text-amber-500'
-                            )}>{interviewAttempt.evaluation.final_recommendation}</span></p>
-                            <p className="text-muted-foreground leading-relaxed">{interviewAttempt.evaluation.summary}</p>
+                    <CardContent className="p-6 space-y-8">
+                        <div className="p-6 bg-background/50 rounded-xl border border-primary/20 shadow-inner">
+                            <div className="flex justify-between items-start mb-4">
+                                <div>
+                                    <p className="text-xs font-bold uppercase text-muted-foreground tracking-tighter">AI Recommendation</p>
+                                    <p className={cn(
+                                        "text-3xl font-black mt-1",
+                                        interviewAttempt.evaluation.final_recommendation === 'Strong Hire' ? 'text-green-500' : 
+                                        interviewAttempt.evaluation.final_recommendation === 'Reject' ? 'text-red-500' : 'text-amber-500'
+                                    )}>{interviewAttempt.evaluation.final_recommendation}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-bold uppercase text-muted-foreground tracking-tighter">Avg Score</p>
+                                    <p className="text-3xl font-black mt-1">{interviewAttempt.evaluation.overall_scores.technical_knowledge}/10</p>
+                                </div>
+                            </div>
+                            <Separator className="my-4 bg-primary/10" />
+                            <p className="text-lg leading-relaxed text-foreground/90 italic">"{interviewAttempt.evaluation.summary}"</p>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {interviewAttempt.evaluation.evaluation.map((ev, i) => (
-                                <div key={i} className="p-3 border rounded-md text-sm space-y-1">
-                                    <p className="font-bold">Q: {ev.question}</p>
-                                    <p className="text-muted-foreground italic">"{interviewAttempt.transcripts[i]}"</p>
-                                    <div className="flex gap-4 pt-2 border-t mt-2">
-                                        <Badge variant="outline">Tech: {ev.technical_score}/10</Badge>
-                                        <Badge variant="outline">Comm: {ev.communication_score}/10</Badge>
-                                    </div>
-                                    <p className="text-xs pt-1">{ev.remarks}</p>
-                                </div>
-                            ))}
+                        <div className="space-y-6">
+                            <h3 className="text-xl font-bold uppercase tracking-tight flex items-center gap-2"><Mic className="h-5 w-5 text-primary" /> Transcription & Per-Question Analysis</h3>
+                            <div className="grid grid-cols-1 gap-6">
+                                {interviewAttempt.evaluation.evaluation.map((ev, i) => (
+                                    <Card key={i} className="overflow-hidden border-border/40 hover:border-primary/40 transition-colors shadow-sm">
+                                        <div className="bg-muted/30 p-4 border-b">
+                                            <span className="text-xs font-bold text-muted-foreground uppercase">Question {i + 1}</span>
+                                            <p className="text-lg font-bold mt-1 text-foreground">{ev.question}</p>
+                                        </div>
+                                        <CardContent className="p-5 space-y-4 bg-background">
+                                            <div className="p-4 bg-secondary/20 rounded-lg border-l-4 border-primary italic text-foreground/80">
+                                                "{interviewAttempt.transcripts[i] || 'Candidate provided no verbal response.'}"
+                                            </div>
+                                            <div className="flex flex-wrap gap-4">
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Technical</p>
+                                                    <Badge variant="outline" className="text-sm font-bold border-primary/20">{ev.technical_score}/10</Badge>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Communication</p>
+                                                    <Badge variant="outline" className="text-sm font-bold border-primary/20">{ev.communication_score}/10</Badge>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">Confidence</p>
+                                                    <Badge variant="outline" className="text-sm font-bold border-primary/20">{ev.confidence_score}/10</Badge>
+                                                </div>
+                                            </div>
+                                            <div className="pt-2">
+                                                <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">AI Feedback</p>
+                                                <p className="text-sm text-foreground/80">{ev.remarks}</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

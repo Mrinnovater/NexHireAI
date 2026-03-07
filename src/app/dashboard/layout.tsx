@@ -2,7 +2,7 @@
 'use client';
 
 import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
-import { LayoutDashboard, History, Trophy, Bot, Star, BookOpen, User, Bell } from "lucide-react";
+import { LayoutDashboard, History, Trophy, Bot, Star, BookOpen, User, Bell, Briefcase } from "lucide-react";
 import { SidebarButton } from "@/components/dashboard/SidebarButton";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -12,6 +12,7 @@ import { Loader2 } from "lucide-react";
 
 const candidateNavItems = [
   { href: "/dashboard", icon: <LayoutDashboard />, label: "Overview" },
+  { href: "/dashboard/applications", icon: <Briefcase />, label: "My Applications" },
   { href: "/dashboard/assessments", icon: <History />, label: "Assessments" },
   { href: "/dashboard/notifications", icon: <Bell />, label: "Notifications" },
   { href: "/dashboard/gamification", icon: <Trophy />, label: "Gamification" },

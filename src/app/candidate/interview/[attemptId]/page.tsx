@@ -34,8 +34,9 @@ export default function InterviewRoom() {
     const [timeLeft, setTimeLeft] = useState(120);
     const [tabSwitches, setTabSwitches] = useState(0);
     
-    // Live Transcript Preview (Prevents Repetition Bug)
+    // Live Transcript Management
     const [liveTranscript, setLiveTranscript] = useState('');
+    const finalTranscriptRef = useRef(''); // Stores only 'isFinal' segments
     
     // Web Speech API
     const recognitionRef = useRef<any>(null);
@@ -64,7 +65,7 @@ export default function InterviewRoom() {
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [firestore, attemptId, router]);
 
-    // Initialize Speech Recognition with Repetition-Fixing Logic
+    // Initialize Speech Recognition with Robust Repetition-Fixing Logic
     useEffect(() => {
         if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
             const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
@@ -75,13 +76,20 @@ export default function InterviewRoom() {
             recognition.lang = 'en-US';
 
             recognition.onresult = (event: any) => {
-                // FIXED: Rebuild the entire transcript from the results array 
-                // instead of appending chunks to prevent repetition.
-                let finalTranscript = '';
-                for (let i = 0; i < event.results.length; i++) {
-                    finalTranscript += event.results[i][0].transcript;
+                let interimTranscript = '';
+                // We don't clear finalTranscriptRef here because it accumulates 'isFinal' segments
+                
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    const transcriptSegment = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscriptRef.current += transcriptSegment + ' ';
+                    } else {
+                        interimTranscript += transcriptSegment;
+                    }
                 }
-                setLiveTranscript(finalTranscript);
+                
+                // The UI shows the committed text + the currently being processed guess
+                setLiveTranscript((finalTranscriptRef.current + interimTranscript).trim());
             };
 
             recognition.onerror = (event: any) => {
@@ -100,7 +108,10 @@ export default function InterviewRoom() {
     }, [toast]);
 
     const startRecording = () => {
+        // Reset buffers for new question
+        finalTranscriptRef.current = '';
         setLiveTranscript('');
+        
         setIsRecording(true);
         setTimeLeft(120);
         speechStartTimeRef.current = Date.now();
@@ -130,10 +141,11 @@ export default function InterviewRoom() {
         const duration = (Date.now() - speechStartTimeRef.current) / 1000;
         setSpeechDurations(prev => [...prev, duration]);
         
-        // Save the current reconstruction to the transcripts array
+        // Save the cleaned transcript
+        const cleanedText = liveTranscript.trim();
         setTranscripts(prev => {
             const next = [...prev];
-            next[currentIdx] = liveTranscript.trim();
+            next[currentIdx] = cleanedText;
             return next;
         });
     };
@@ -142,6 +154,7 @@ export default function InterviewRoom() {
         if (currentIdx < attempt.selectedQuestions.length - 1) {
             setCurrentIdx(prev => prev + 1);
             setLiveTranscript('');
+            finalTranscriptRef.current = '';
             setTimeLeft(120);
         } else {
             handleSubmit();
@@ -192,20 +205,20 @@ export default function InterviewRoom() {
     if (status === 'intro') {
         return (
             <div className="h-screen flex items-center justify-center bg-background p-4">
-                <Card className="max-w-md w-full">
+                <Card className="max-w-md w-full border-primary/20 shadow-2xl">
                     <CardHeader>
                         <CardTitle>Ready for your AI Interview?</CardTitle>
                         <CardDescription>Job: {attempt.jobTitle}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="p-4 bg-muted rounded-lg space-y-2 text-sm">
-                            <p className="flex items-center gap-2"><Mic className="h-4 w-4 text-primary" /> 5 verbal questions</p>
-                            <p className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-primary" /> 120 seconds per answer</p>
-                            <p className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-primary" /> Anti-cheating monitoring enabled</p>
+                        <div className="p-4 bg-muted rounded-xl space-y-2 text-sm border">
+                            <p className="flex items-center gap-2 font-medium"><Mic className="h-4 w-4 text-primary" /> 5 verbal questions</p>
+                            <p className="flex items-center gap-2 font-medium"><AlertCircle className="h-4 w-4 text-primary" /> 120 seconds per answer</p>
+                            <p className="flex items-center gap-2 font-medium text-amber-500"><AlertCircle className="h-4 w-4" /> Anti-cheating monitoring enabled</p>
                         </div>
                     </CardContent>
                     <CardFooter>
-                        <Button className="w-full" onClick={() => setStatus('active')}>Start Interview</Button>
+                        <Button className="w-full font-bold h-12" onClick={() => setStatus('active')}>Start Interview</Button>
                     </CardFooter>
                 </Card>
             </div>
@@ -225,13 +238,16 @@ export default function InterviewRoom() {
     if (status === 'done') {
         return (
             <div className="h-screen flex items-center justify-center bg-background p-4">
-                <Card className="max-w-md w-full text-center">
+                <Card className="max-w-md w-full text-center border-green-500/30">
                     <CardHeader>
-                        <CardTitle>Interview Complete!</CardTitle>
+                        <div className="h-16 w-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Send className="text-green-500 h-8 w-8" />
+                        </div>
+                        <CardTitle className="text-2xl">Interview Complete!</CardTitle>
                         <CardDescription>Your performance has been evaluated and sent to the recruiter.</CardDescription>
                     </CardHeader>
                     <CardFooter>
-                        <Button className="w-full" onClick={() => router.push('/dashboard')}>Back to Dashboard</Button>
+                        <Button className="w-full font-bold" onClick={() => router.push('/dashboard')}>Back to Dashboard</Button>
                     </CardFooter>
                 </Card>
             </div>
@@ -242,10 +258,10 @@ export default function InterviewRoom() {
 
     return (
         <div className="min-h-screen bg-secondary/30 flex flex-col">
-            <div className="p-4 border-b bg-background flex justify-between items-center">
-                <div className="font-bold text-lg">Question {currentIdx + 1} of 5</div>
+            <div className="p-4 border-b bg-background flex justify-between items-center shadow-sm">
+                <div className="font-black text-xl tracking-tighter">QUESTION {currentIdx + 1} <span className="text-muted-foreground font-normal">OF 5</span></div>
                 <div className="flex items-center gap-4">
-                    <div className={`px-3 py-1 rounded-full text-sm font-mono ${timeLeft < 20 ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-muted'}`}>
+                    <div className={`px-4 py-1.5 rounded-full text-sm font-black font-mono transition-colors ${timeLeft < 20 ? 'bg-destructive text-destructive-foreground animate-pulse' : 'bg-primary/10 text-primary border border-primary/20'}`}>
                         {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
                     </div>
                 </div>
@@ -260,51 +276,51 @@ export default function InterviewRoom() {
                         exit={{ opacity: 0, y: -20 }}
                         className="max-w-3xl w-full"
                     >
-                        <Card className="shadow-xl">
-                            <CardHeader className="text-center">
-                                <Badge className="w-fit mx-auto mb-2" variant="secondary">{currentQuestion.topic}</Badge>
-                                <CardTitle className="text-2xl md:text-3xl leading-tight">{currentQuestion.question}</CardTitle>
-                                <Button variant="ghost" size="sm" onClick={speakQuestion} className="mt-2">
-                                    <Volume2 className="h-4 w-4 mr-2" /> Listen to Question
+                        <Card className="shadow-2xl border-primary/10 overflow-hidden">
+                            <CardHeader className="text-center bg-secondary/20 pb-8 pt-10">
+                                <Badge className="w-fit mx-auto mb-4 uppercase font-black tracking-widest px-3" variant="secondary">{currentQuestion.topic}</Badge>
+                                <CardTitle className="text-3xl md:text-4xl leading-tight font-black tracking-tight">{currentQuestion.question}</CardTitle>
+                                <Button variant="ghost" size="sm" onClick={speakQuestion} className="mt-4 font-bold text-primary hover:bg-primary/5">
+                                    <Volume2 className="h-4 w-4 mr-2" /> Speak Question
                                 </Button>
                             </CardHeader>
-                            <CardContent className="flex flex-col items-center py-8">
+                            <CardContent className="flex flex-col items-center py-12 bg-card">
                                 <Waveform isRecording={isRecording} />
                                 
-                                {/* Live Transcript Preview */}
-                                <div className="mt-8 w-full max-w-xl">
-                                    <div className="p-4 bg-muted/50 rounded-xl border border-dashed flex items-start gap-3 min-h-24">
-                                        <MessageSquareText className="h-5 w-5 text-muted-foreground mt-1 flex-shrink-0" />
+                                {/* Clean Live Transcript Preview */}
+                                <div className="mt-10 w-full max-w-xl">
+                                    <div className="p-6 bg-muted/30 rounded-2xl border-2 border-dashed border-primary/10 flex items-start gap-4 min-h-[140px] transition-all hover:bg-muted/50">
+                                        <MessageSquareText className="h-6 w-6 text-primary mt-1 flex-shrink-0" />
                                         <div className="flex-grow">
-                                            <p className="text-xs font-bold uppercase text-muted-foreground mb-1 tracking-tighter">Live Transcription</p>
-                                            <p className="text-sm italic text-foreground/80 leading-relaxed">
-                                                {liveTranscript || (isRecording ? "Listening..." : "Your spoken answer will appear here...")}
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground mb-2 tracking-widest">Live Transcription Service</p>
+                                            <p className="text-lg italic text-foreground/90 leading-relaxed font-medium">
+                                                {liveTranscript || (isRecording ? "Listening closely..." : "Your spoken answer will appear here correctly...")}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="mt-8">
+                                <div className="mt-12">
                                     {!isRecording ? (
-                                        <Button size="lg" className="rounded-full h-24 w-24 shadow-lg shadow-primary/20" onClick={startRecording}>
-                                            <Mic className="h-10 w-10" />
+                                        <Button size="lg" className="rounded-full h-28 w-28 shadow-2xl shadow-primary/40 transition-transform active:scale-95" onClick={startRecording}>
+                                            <Mic className="h-12 w-12" />
                                         </Button>
                                     ) : (
-                                        <Button size="lg" variant="destructive" className="rounded-full h-24 w-24 animate-pulse" onClick={stopRecording}>
-                                            <MicOff className="h-10 w-10" />
+                                        <Button size="lg" variant="destructive" className="rounded-full h-28 w-28 animate-pulse shadow-2xl shadow-destructive/40" onClick={stopRecording}>
+                                            <MicOff className="h-12 w-12" />
                                         </Button>
                                     )}
                                 </div>
-                                <p className="mt-4 text-sm text-muted-foreground font-medium">
-                                    {isRecording ? "Recording... Click to stop" : "Click the mic to start speaking"}
+                                <p className="mt-6 text-sm text-muted-foreground font-black uppercase tracking-widest">
+                                    {isRecording ? "Recording in progress" : "Click mic to start"}
                                 </p>
                             </CardContent>
-                            <CardFooter className="justify-between border-t mt-4 pt-6">
-                                <div className="text-xs text-muted-foreground">
-                                    Security: {tabSwitches > 0 ? `${tabSwitches} tab switches detected` : 'Stable Session'}
+                            <CardFooter className="justify-between border-t bg-secondary/10 px-8 py-6">
+                                <div className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">
+                                    Security Status: {tabSwitches > 0 ? <span className="text-amber-500">{tabSwitches} interruptions</span> : <span className="text-green-500">Secure Session</span>}
                                 </div>
-                                <Button disabled={isRecording || !liveTranscript} onClick={nextQuestion}>
-                                    {currentIdx === 4 ? "Finish Interview" : "Next Question"}
+                                <Button disabled={isRecording || !liveTranscript} onClick={nextQuestion} className="font-bold px-8">
+                                    {currentIdx === 4 ? "Submit Interview" : "Next Question"}
                                 </Button>
                             </CardFooter>
                         </Card>

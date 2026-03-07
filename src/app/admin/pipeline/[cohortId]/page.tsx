@@ -230,10 +230,10 @@ export default function LeaderboardPage() {
 
             {/* Detailed Interview Report Dialog */}
             <Dialog open={!!selectedInterview} onOpenChange={(open) => !open && setSelectedInterview(null)}>
-                <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col p-0 overflow-hidden shadow-2xl border-primary/20">
+                <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden shadow-2xl border-primary/20">
                     <DialogHeader className="p-8 bg-secondary/30 flex-shrink-0 border-b">
                         <div className="flex items-center gap-4">
-                            <div className="bg-primary/10 p-3 rounded-full">
+                            <div className="bg-primary/10 p-3 rounded-full border border-primary/20">
                                 <BrainCircuit className="text-primary h-8 w-8" />
                             </div>
                             <div>
@@ -245,117 +245,123 @@ export default function LeaderboardPage() {
                         </div>
                     </DialogHeader>
                     
-                    <ScrollArea className="flex-grow min-h-0 overflow-y-auto">
-                        <div className="p-8 space-y-10">
-                            {/* Summary Section */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                                <Card className="lg:col-span-1 bg-primary/5 border-primary/20">
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Competency Map</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="h-[280px]">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                                                <PolarGrid />
-                                                <PolarAngleAxis dataKey="subject" />
-                                                <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                                                <Radar name="Score" dataKey="A" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.6} />
-                                            </RadarChart>
-                                        </ResponsiveContainer>
-                                    </CardContent>
-                                </Card>
+                    <div className="flex-grow overflow-hidden flex flex-col">
+                        <ScrollArea className="flex-grow">
+                            <div className="p-8 space-y-10 pb-20">
+                                {/* Summary Section */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                                    <Card className="lg:col-span-1 bg-primary/5 border-primary/20">
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Competency Map</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="h-[280px]">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                                                    <PolarGrid />
+                                                    <PolarAngleAxis dataKey="subject" tick={{fontSize: 10, fontWeight: 700}} />
+                                                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                                                    <Radar name="Score" dataKey="A" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.6} />
+                                                </RadarChart>
+                                            </ResponsiveContainer>
+                                        </CardContent>
+                                    </Card>
 
-                                <div className="lg:col-span-2 space-y-6">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="p-4 bg-muted/30 rounded-xl border">
-                                            <Label className="text-muted-foreground text-[10px] uppercase font-black">AI Recommendation</Label>
-                                            <div className="mt-1 flex items-center gap-2">
-                                                <div className={cn(
-                                                    "h-3 w-3 rounded-full animate-pulse",
-                                                    selectedInterview?.evaluation?.final_recommendation === 'Strong Hire' ? 'bg-green-500' :
-                                                    selectedInterview?.evaluation?.final_recommendation === 'Reject' ? 'bg-red-500' : 'bg-amber-500'
-                                                )} />
-                                                <span className={cn(
-                                                    "text-2xl font-black",
-                                                    selectedInterview?.evaluation?.final_recommendation === 'Strong Hire' ? 'text-green-500' :
-                                                    selectedInterview?.evaluation?.final_recommendation === 'Reject' ? 'text-red-500' : 'text-amber-500'
-                                                )}>
-                                                    {selectedInterview?.evaluation?.final_recommendation}
-                                                </span>
+                                    <div className="lg:col-span-2 space-y-6">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-5 bg-muted/30 rounded-2xl border-2 border-dashed">
+                                                <Label className="text-muted-foreground text-[10px] uppercase font-black tracking-widest">AI Recommendation</Label>
+                                                <div className="mt-2 flex items-center gap-3">
+                                                    <div className={cn(
+                                                        "h-4 w-4 rounded-full animate-pulse",
+                                                        selectedInterview?.evaluation?.final_recommendation === 'Strong Hire' ? 'bg-green-500' :
+                                                        selectedInterview?.evaluation?.final_recommendation === 'Reject' ? 'bg-red-500' : 'bg-amber-500'
+                                                    )} />
+                                                    <span className={cn(
+                                                        "text-3xl font-black tracking-tighter",
+                                                        selectedInterview?.evaluation?.final_recommendation === 'Strong Hire' ? 'text-green-500' :
+                                                        selectedInterview?.evaluation?.final_recommendation === 'Reject' ? 'text-red-500' : 'text-amber-500'
+                                                    )}>
+                                                        {selectedInterview?.evaluation?.final_recommendation}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="p-5 bg-primary/5 rounded-2xl border border-primary/10">
+                                                <Label className="text-muted-foreground text-[10px] uppercase font-black tracking-widest">Avg Tech Depth</Label>
+                                                <p className="text-3xl font-black text-primary mt-2">{selectedInterview?.evaluation?.overall_scores.technical_knowledge}/10</p>
                                             </div>
                                         </div>
-                                        <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
-                                            <Label className="text-muted-foreground text-[10px] uppercase font-black">Technical Knowledge</Label>
-                                            <p className="text-2xl font-black text-primary mt-1">{selectedInterview?.evaluation?.overall_scores.technical_knowledge}/10</p>
+                                        
+                                        <div className="p-6 bg-background rounded-2xl border-l-8 border-primary shadow-xl ring-1 ring-primary/5">
+                                            <Label className="text-muted-foreground text-[10px] uppercase font-black mb-3 block tracking-widest">Executive Summary</Label>
+                                            <p className="text-xl leading-relaxed text-foreground/90 italic font-medium">
+                                                "{selectedInterview?.evaluation?.summary}"
+                                            </p>
                                         </div>
                                     </div>
-                                    
-                                    <div className="p-6 bg-background rounded-xl border-l-4 border-primary shadow-sm">
-                                        <Label className="text-muted-foreground text-[10px] uppercase font-black mb-2 block">Executive Summary</Label>
-                                        <p className="text-lg leading-relaxed text-foreground/90 italic font-medium">
-                                            "{selectedInterview?.evaluation?.summary}"
-                                        </p>
+                                </div>
+
+                                <Separator className="bg-primary/5 h-px" />
+
+                                {/* Q&A Breakdown */}
+                                <div className="space-y-8">
+                                    <h3 className="text-3xl font-black tracking-tighter flex items-center gap-3">
+                                        <MessageSquare className="h-8 w-8 text-primary" />
+                                        Evidence & Transcripts
+                                    </h3>
+                                    <div className="grid gap-8">
+                                        {selectedInterview?.evaluation?.evaluation.map((ev, i) => (
+                                            <Card key={i} className="overflow-hidden border-primary/10 shadow-2xl hover:border-primary/30 transition-all group">
+                                                <div className="bg-secondary/20 p-6 border-b flex justify-between items-start gap-4">
+                                                    <div className="flex-grow">
+                                                        <div className="flex items-center gap-3 mb-3">
+                                                            <Badge className="bg-primary text-primary-foreground font-black px-3">QUESTION {i + 1}</Badge>
+                                                            <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest border-primary/20">{selectedInterview.selectedQuestions[i]?.topic || 'Technical'}</Badge>
+                                                        </div>
+                                                        <p className="text-2xl font-bold text-foreground leading-tight tracking-tight">{ev.question}</p>
+                                                    </div>
+                                                    <div className="text-right flex-shrink-0">
+                                                        <div className="p-3 bg-background rounded-2xl border-2 border-primary/20 text-center min-w-[100px] shadow-lg">
+                                                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Verdict</p>
+                                                            <p className="text-2xl font-black text-primary">{ev.technical_score}/10</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <CardContent className="p-8 space-y-8 bg-card">
+                                                    <div className="relative">
+                                                        <Label className="text-[10px] font-black uppercase text-primary mb-3 block tracking-widest">Spoken Response (Transcript)</Label>
+                                                        <div className="bg-muted/30 border-2 border-dashed rounded-2xl p-6 italic text-lg text-foreground/80 leading-relaxed shadow-inner font-medium relative group-hover:bg-muted/50 transition-colors">
+                                                            <div className="absolute -top-3 -left-3 bg-primary/10 p-2 rounded-full border border-primary/20"><Mic className="h-4 w-4 text-primary" /></div>
+                                                            "{selectedInterview.transcripts[i] || 'Candidate remained silent or microphone failed during this prompt.'}"
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                                        <MetricBox label="Technical Depth" value={ev.technical_score} />
+                                                        <MetricBox label="Articulation" value={ev.communication_score} />
+                                                        <MetricBox label="Confidence" value={ev.confidence_score} />
+                                                    </div>
+
+                                                    <div className="p-6 bg-primary/5 rounded-2xl border-2 border-primary/10 relative overflow-hidden">
+                                                        <div className="absolute top-0 right-0 h-24 w-24 bg-primary/5 rounded-full -mr-12 -mt-12" />
+                                                        <Label className="text-[10px] font-black uppercase text-primary mb-3 block tracking-widest flex items-center gap-2">
+                                                            <BrainCircuit className="h-3 w-3" /> AI Feedback & Observations
+                                                        </Label>
+                                                        <p className="text-base text-foreground/90 font-semibold leading-relaxed relative z-10">{ev.remarks}</p>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
-
-                            <Separator />
-
-                            {/* Q&A Breakdown */}
-                            <div className="space-y-6">
-                                <h3 className="text-2xl font-black tracking-tighter flex items-center gap-3">
-                                    <MessageSquare className="h-6 w-6 text-primary" />
-                                    Detailed Question Analysis
-                                </h3>
-                                <div className="grid gap-8">
-                                    {selectedInterview?.evaluation?.evaluation.map((ev, i) => (
-                                        <Card key={i} className="overflow-hidden border-primary/10 shadow-lg hover:border-primary/30 transition-all">
-                                            <div className="bg-secondary/20 p-6 border-b flex justify-between items-start gap-4">
-                                                <div className="flex-grow">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <Badge className="bg-primary/20 text-primary hover:bg-primary/30 border-none font-bold">Q{i + 1}</Badge>
-                                                        <Badge variant="outline" className="text-[10px] font-bold uppercase">{selectedInterview.selectedQuestions[i]?.topic || 'Technical'}</Badge>
-                                                    </div>
-                                                    <p className="text-xl font-bold text-foreground leading-tight">{ev.question}</p>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="p-2 bg-background rounded-lg border text-center min-w-20">
-                                                        <p className="text-[9px] font-black uppercase text-muted-foreground">Score</p>
-                                                        <p className="text-xl font-black text-primary">{ev.technical_score}/10</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <CardContent className="p-6 space-y-6 bg-background">
-                                                <div>
-                                                    <Label className="text-[10px] font-black uppercase text-muted-foreground mb-2 block tracking-widest">Candidate Answer (Transcript)</Label>
-                                                    <div className="bg-muted/30 border rounded-xl p-5 italic text-base text-foreground/80 leading-relaxed shadow-inner font-medium">
-                                                        "{selectedInterview.transcripts[i] || 'No verbal answer recorded during the session.'}"
-                                                    </div>
-                                                </div>
-                                                
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                                    <MetricBox label="Technical" value={ev.technical_score} />
-                                                    <MetricBox label="Communication" value={ev.communication_score} />
-                                                    <MetricBox label="Confidence" value={ev.confidence_score} />
-                                                </div>
-
-                                                <div className="p-5 bg-primary/5 rounded-xl border border-primary/10">
-                                                    <Label className="text-[10px] font-black uppercase text-primary mb-2 block tracking-widest">AI Feedback & Observations</Label>
-                                                    <p className="text-sm text-foreground/90 font-medium leading-relaxed">{ev.remarks}</p>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </ScrollArea>
+                        </ScrollArea>
+                    </div>
                     
-                    <DialogFooter className="p-8 bg-secondary/30 flex-shrink-0 border-t flex justify-between items-center sm:justify-between">
-                        <Button variant="ghost" className="font-bold uppercase text-xs tracking-widest" onClick={() => setSelectedInterview(null)}>Close Report</Button>
-                        <div className="flex gap-3">
-                            <Button variant="outline" className="font-bold" onClick={() => window.print()}>Download PDF</Button>
-                            <Button className="font-bold" onClick={() => router.push(`/admin/candidates/${selectedInterview?.candidateId}`)}>View Full Profile</Button>
+                    <DialogFooter className="p-8 bg-secondary/30 flex-shrink-0 border-t flex justify-between items-center sm:justify-between shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+                        <Button variant="ghost" className="font-black uppercase text-xs tracking-widest hover:bg-destructive/10 hover:text-destructive" onClick={() => setSelectedInterview(null)}>Close Session Report</Button>
+                        <div className="flex gap-4">
+                            <Button variant="outline" className="font-bold h-12 px-6" onClick={() => window.print()}>Export to PDF</Button>
+                            <Button className="font-bold h-12 px-8 shadow-xl shadow-primary/20" onClick={() => router.push(`/admin/candidates/${selectedInterview?.candidateId}`)}>Review Full Profile</Button>
                         </div>
                     </DialogFooter>
                 </DialogContent>
@@ -396,11 +402,11 @@ export default function LeaderboardPage() {
 }
 
 const MetricBox = ({ label, value }: { label: string, value: number }) => (
-    <div className="p-3 border rounded-xl bg-background text-center shadow-sm">
-        <p className="text-[9px] font-black uppercase text-muted-foreground mb-1 tracking-tighter">{label}</p>
+    <div className="p-4 border-2 rounded-2xl bg-background text-center shadow-lg transition-transform hover:scale-105">
+        <p className="text-[10px] font-black uppercase text-muted-foreground mb-2 tracking-tighter">{label}</p>
         <div className="flex items-center justify-center gap-1">
-            <span className="text-lg font-black text-foreground">{value}</span>
-            <span className="text-[10px] text-muted-foreground">/10</span>
+            <span className="text-3xl font-black text-foreground tracking-tighter">{value}</span>
+            <span className="text-xs font-bold text-muted-foreground">/10</span>
         </div>
     </div>
 );

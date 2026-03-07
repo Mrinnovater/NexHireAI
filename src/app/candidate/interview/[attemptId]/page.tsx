@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Mic, MicOff, Play, Send, Loader2, AlertCircle, Volume2 } from 'lucide-react';
+import { Mic, MicOff, Play, Send, Loader2, AlertCircle, Volume2, MessageSquareText } from 'lucide-react';
 import { Waveform } from '@/components/interview/Waveform';
 import { evaluateVoiceInterview } from '@/ai/flows/evaluate-voice-interview-flow';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,6 +34,9 @@ export default function InterviewRoom() {
     const [timeLeft, setTimeLeft] = useState(120);
     const [tabSwitches, setTabSwitches] = useState(0);
     
+    // Live Transcript Preview (Prevents Repetition Bug)
+    const [liveTranscript, setLiveTranscript] = useState('');
+    
     // Web Speech API
     const recognitionRef = useRef<any>(null);
     const timerRef = useRef<any>(null);
@@ -54,7 +57,6 @@ export default function InterviewRoom() {
         };
         fetchAttempt();
 
-        // Anti-cheating: Tab switch detection
         const handleVisibilityChange = () => {
             if (document.hidden) setTabSwitches(prev => prev + 1);
         };
@@ -62,31 +64,53 @@ export default function InterviewRoom() {
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [firestore, attemptId, router]);
 
-    // Initialize Speech Recognition
+    // Initialize Speech Recognition with Repetition-Fixing Logic
     useEffect(() => {
         if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
             const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-            recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = true;
-            recognitionRef.current.interimResults = true;
+            const recognition = new SpeechRecognition();
+            
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
 
-            recognitionRef.current.onresult = (event: any) => {
-                const current = event.resultIndex;
-                const transcript = event.results[current][0].transcript;
-                setTranscripts(prev => {
-                    const next = [...prev];
-                    next[currentIdx] = (next[currentIdx] || '') + ' ' + transcript;
-                    return next;
-                });
+            recognition.onresult = (event: any) => {
+                // FIXED: Rebuild the entire transcript from the results array 
+                // instead of appending chunks to prevent repetition.
+                let finalTranscript = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    finalTranscript += event.results[i][0].transcript;
+                }
+                setLiveTranscript(finalTranscript);
             };
+
+            recognition.onerror = (event: any) => {
+                console.error('Speech recognition error', event.error);
+                if (event.error === 'not-allowed') {
+                    toast({ title: "Microphone Blocked", description: "Please enable microphone access in your browser settings.", variant: "destructive" });
+                }
+            };
+
+            recognitionRef.current = recognition;
         }
-    }, [currentIdx]);
+        
+        return () => {
+            recognitionRef.current?.stop();
+        };
+    }, [toast]);
 
     const startRecording = () => {
+        setLiveTranscript('');
         setIsRecording(true);
         setTimeLeft(120);
         speechStartTimeRef.current = Date.now();
-        recognitionRef.current?.start();
+        
+        try {
+            recognitionRef.current?.start();
+        } catch (e) {
+            console.warn("Recognition already started or failed to start", e);
+        }
+
         timerRef.current = setInterval(() => {
             setTimeLeft(prev => {
                 if (prev <= 1) {
@@ -102,13 +126,22 @@ export default function InterviewRoom() {
         setIsRecording(false);
         clearInterval(timerRef.current);
         recognitionRef.current?.stop();
+        
         const duration = (Date.now() - speechStartTimeRef.current) / 1000;
         setSpeechDurations(prev => [...prev, duration]);
+        
+        // Save the current reconstruction to the transcripts array
+        setTranscripts(prev => {
+            const next = [...prev];
+            next[currentIdx] = liveTranscript.trim();
+            return next;
+        });
     };
 
     const nextQuestion = () => {
         if (currentIdx < attempt.selectedQuestions.length - 1) {
             setCurrentIdx(prev => prev + 1);
+            setLiveTranscript('');
             setTimeLeft(120);
         } else {
             handleSubmit();
@@ -148,7 +181,8 @@ export default function InterviewRoom() {
 
             setStatus('done');
         } catch (error) {
-            toast({ title: "Submission Failed", variant: "destructive" });
+            console.error(error);
+            toast({ title: "Submission Failed", description: "There was an error evaluating your interview. Please try again.", variant: "destructive" });
             setStatus('active');
         }
     };
@@ -165,9 +199,9 @@ export default function InterviewRoom() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="p-4 bg-muted rounded-lg space-y-2 text-sm">
-                            <p className="flex items-center gap-2"><Mic className="h-4 w-4" /> 5 verbal questions</p>
-                            <p className="flex items-center gap-2"><AlertCircle className="h-4 w-4" /> 120 seconds per answer</p>
-                            <p className="flex items-center gap-2"><AlertCircle className="h-4 w-4" /> Anti-cheating monitoring enabled</p>
+                            <p className="flex items-center gap-2"><Mic className="h-4 w-4 text-primary" /> 5 verbal questions</p>
+                            <p className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-primary" /> 120 seconds per answer</p>
+                            <p className="flex items-center gap-2"><AlertCircle className="h-4 w-4 text-primary" /> Anti-cheating monitoring enabled</p>
                         </div>
                     </CardContent>
                     <CardFooter>
@@ -224,38 +258,52 @@ export default function InterviewRoom() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
-                        className="max-w-2xl w-full"
+                        className="max-w-3xl w-full"
                     >
                         <Card className="shadow-xl">
                             <CardHeader className="text-center">
                                 <Badge className="w-fit mx-auto mb-2" variant="secondary">{currentQuestion.topic}</Badge>
-                                <CardTitle className="text-2xl leading-tight">{currentQuestion.question}</CardTitle>
+                                <CardTitle className="text-2xl md:text-3xl leading-tight">{currentQuestion.question}</CardTitle>
                                 <Button variant="ghost" size="sm" onClick={speakQuestion} className="mt-2">
                                     <Volume2 className="h-4 w-4 mr-2" /> Listen to Question
                                 </Button>
                             </CardHeader>
                             <CardContent className="flex flex-col items-center py-8">
                                 <Waveform isRecording={isRecording} />
+                                
+                                {/* Live Transcript Preview */}
+                                <div className="mt-8 w-full max-w-xl">
+                                    <div className="p-4 bg-muted/50 rounded-xl border border-dashed flex items-start gap-3 min-h-24">
+                                        <MessageSquareText className="h-5 w-5 text-muted-foreground mt-1 flex-shrink-0" />
+                                        <div className="flex-grow">
+                                            <p className="text-xs font-bold uppercase text-muted-foreground mb-1 tracking-tighter">Live Transcription</p>
+                                            <p className="text-sm italic text-foreground/80 leading-relaxed">
+                                                {liveTranscript || (isRecording ? "Listening..." : "Your spoken answer will appear here...")}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="mt-8">
                                     {!isRecording ? (
-                                        <Button size="lg" className="rounded-full h-20 w-20 shadow-lg shadow-primary/20" onClick={startRecording}>
-                                            <Mic className="h-8 w-8" />
+                                        <Button size="lg" className="rounded-full h-24 w-24 shadow-lg shadow-primary/20" onClick={startRecording}>
+                                            <Mic className="h-10 w-10" />
                                         </Button>
                                     ) : (
-                                        <Button size="lg" variant="destructive" className="rounded-full h-20 w-20 animate-pulse" onClick={stopRecording}>
-                                            <MicOff className="h-8 w-8" />
+                                        <Button size="lg" variant="destructive" className="rounded-full h-24 w-24 animate-pulse" onClick={stopRecording}>
+                                            <MicOff className="h-10 w-10" />
                                         </Button>
                                     )}
                                 </div>
-                                <p className="mt-4 text-sm text-muted-foreground">
-                                    {isRecording ? "Recording your answer..." : "Click the mic to start speaking"}
+                                <p className="mt-4 text-sm text-muted-foreground font-medium">
+                                    {isRecording ? "Recording... Click to stop" : "Click the mic to start speaking"}
                                 </p>
                             </CardContent>
-                            <CardFooter className="justify-between">
+                            <CardFooter className="justify-between border-t mt-4 pt-6">
                                 <div className="text-xs text-muted-foreground">
-                                    Warning: Tab switches detected: {tabSwitches}
+                                    Security: {tabSwitches > 0 ? `${tabSwitches} tab switches detected` : 'Stable Session'}
                                 </div>
-                                <Button disabled={isRecording} onClick={nextQuestion}>
+                                <Button disabled={isRecording || !liveTranscript} onClick={nextQuestion}>
                                     {currentIdx === 4 ? "Finish Interview" : "Next Question"}
                                 </Button>
                             </CardFooter>

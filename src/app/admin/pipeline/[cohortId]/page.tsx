@@ -3,12 +3,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { collection, query, onSnapshot, getDoc, doc, where, getDocs, writeBatch, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, getDoc, doc, where, getDocs, updateDoc, setDoc, addDoc } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
-import type { Cohort, User, AssessmentAttempt, CandidateStatus } from '@/lib/types';
+import type { Cohort, User, AssessmentAttempt, CandidateStatus, JobPosition, InterviewQuestionBank } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft, Crown, Medal, Gem, Users, Eye, BarChart, User as UserIcon } from 'lucide-react';
+import { Loader2, ArrowLeft, Crown, Medal, Gem, Users, Eye, BarChart, User as UserIcon, Mic, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -16,14 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-
-type ExtendedCandidateStatus = CandidateStatus | 'Yet to Take';
-
-type LeaderboardEntry = {
-    user: User;
-    attempt?: AssessmentAttempt;
-    status: ExtendedCandidateStatus;
-};
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function LeaderboardPage() {
     const { firestore } = initializeFirebase();
@@ -33,262 +27,197 @@ export default function LeaderboardPage() {
     const cohortId = params.cohortId as string;
 
     const [cohort, setCohort] = useState<Cohort | null>(null);
-    const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+    const [leaderboard, setLeaderboard] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    
+    // Job/Interview State
+    const [jobs, setJobs] = useState<JobPosition[]>([]);
+    const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+    const [selectedJobId, setSelectedJobId] = useState('');
 
-    const constructLeaderboard = useCallback((cohortData: Cohort, users: User[], attempts: AssessmentAttempt[]) => {
+    useEffect(() => {
+        if (!firestore) return;
+        const fetchJobs = async () => {
+            const q = query(collection(firestore, 'jobs'));
+            const snap = await getDocs(q);
+            setJobs(snap.docs.map(d => ({ id: d.id, ...d.data() } as JobPosition)));
+        };
+        fetchJobs();
+    }, [firestore]);
+
+    const fetchLeaderboard = useCallback(async (cohortData: Cohort) => {
+        if (!firestore) return;
+        const usersQuery = query(collection(firestore, 'users'), where('__name__', 'in', cohortData.candidateIds));
+        const usersSnap = await getDocs(usersQuery);
+        const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as User));
+
+        // Fetch technical attempts
+        let techAttempts: AssessmentAttempt[] = [];
+        if (cohortData.assignedAssessmentId) {
+            const promises = cohortData.candidateIds.map(async id => {
+                const q = query(collection(firestore, `users/${id}/assessments`), where('rootAssessmentId', '==', cohortData.assignedAssessmentId));
+                const snap = await getDocs(q);
+                return snap.empty ? null : { ...snap.docs[0].data(), docId: snap.docs[0].id } as AssessmentAttempt;
+            });
+            const res = await Promise.all(promises);
+            techAttempts = res.filter(Boolean) as AssessmentAttempt[];
+        }
+
+        // Fetch Interview Attempts
+        const interviewQuery = query(collection(firestore, 'interviewAttempts'), where('cohortId', '==', cohortData.id));
+        const interviewSnap = await getDocs(interviewQuery);
+        const interviewData = interviewSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
         const entries = users.map(user => {
-            const userAttempt = attempts.find(a => a.userId === user.id);
-            const status: ExtendedCandidateStatus = (cohortData.statuses && cohortData.statuses[user.id]) || (userAttempt ? 'Under Review' : 'Yet to Take');
-            return { user, attempt: userAttempt, status };
+            const tech = techAttempts.find(a => a.userId === user.id);
+            const interview = interviewData.find(a => a.candidateId === user.id);
+            return { user, tech, interview, status: cohortData.statuses?.[user.id] || (tech ? 'Under Review' : 'Yet to Take') };
         });
 
-        entries.sort((a, b) => (b.attempt?.finalScore ?? -1) - (a.attempt?.finalScore ?? -1));
+        entries.sort((a, b) => (b.tech?.finalScore ?? -1) - (a.tech?.finalScore ?? -1));
         setLeaderboard(entries);
-    }, []);
+    }, [firestore]);
 
     useEffect(() => {
         if (!firestore || !cohortId) return;
-
-        const fetchInitialData = async () => {
-            setIsLoading(true);
-            try {
-                const cohortRef = doc(firestore, 'cohorts', cohortId);
-                const cohortSnap = await getDoc(cohortRef);
-
-                if (!cohortSnap.exists()) {
-                    toast({ title: "Cohort not found", variant: "destructive" });
-                    router.push('/admin/pipeline');
-                    return;
-                }
-
-                const cohortData = { id: cohortSnap.id, ...cohortSnap.data() } as Cohort;
-                setCohort(cohortData);
-
-                if (!cohortData.candidateIds || cohortData.candidateIds.length === 0) {
-                    setLeaderboard([]);
-                    setIsLoading(false);
-                    return;
-                }
-
-                // Fetch all users in the cohort
-                const usersQuery = query(collection(firestore, 'users'), where('__name__', 'in', cohortData.candidateIds));
-                const usersSnap = await getDocs(usersQuery);
-                const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as User));
-                
-                let attempts: AssessmentAttempt[] = [];
-                if (cohortData.assignedAssessmentId) {
-                    const attemptPromises = cohortData.candidateIds.map(async (userId) => {
-                        const userAttemptsQuery = query(
-                            collection(firestore, `users/${userId}/assessments`),
-                            where('rootAssessmentId', '==', cohortData.assignedAssessmentId)
-                        );
-                        const attemptsSnapshot = await getDocs(userAttemptsQuery);
-                        if (!attemptsSnapshot.empty) {
-                             const userAttempts = attemptsSnapshot.docs.map(d => ({ ...d.data(), docId: d.id } as AssessmentAttempt));
-                             userAttempts.sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0));
-                             return userAttempts[0];
-                        }
-                        return null;
-                    });
-                    
-                    const settledAttempts = await Promise.all(attemptPromises);
-                    attempts = settledAttempts.filter(Boolean) as AssessmentAttempt[];
-                }
-
-                constructLeaderboard(cohortData, users, attempts);
-
-            } catch (error) {
-                console.error("Error fetching initial data:", error);
-                toast({ title: 'Error', description: 'Failed to load leaderboard data.', variant: 'destructive' });
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchInitialData();
-        
-        const cohortRef = doc(firestore, 'cohorts', cohortId);
-        const unsubscribe = onSnapshot(cohortRef, (docSnap) => {
+        const unsub = onSnapshot(doc(firestore, 'cohorts', cohortId), (docSnap) => {
             if (docSnap.exists()) {
-                const updatedCohortData = { id: docSnap.id, ...docSnap.data() } as Cohort;
-                setCohort(updatedCohortData);
-                
-                setLeaderboard(prev => {
-                     const users = prev.map(p => p.user);
-                     const attempts = prev.map(p => p.attempt).filter(Boolean) as AssessmentAttempt[];
-                     const newLeaderboard = users.map(user => {
-                        const userAttempt = attempts.find(a => a.userId === user.id);
-                        const status: ExtendedCandidateStatus = (updatedCohortData.statuses && updatedCohortData.statuses[user.id]) || (userAttempt ? 'Under Review' : 'Yet to Take');
-                        return { user, attempt: userAttempt, status };
-                    });
-                    newLeaderboard.sort((a, b) => (b.attempt?.finalScore ?? -1) - (a.attempt?.finalScore ?? -1));
-                    return newLeaderboard;
-                });
+                const data = { id: docSnap.id, ...docSnap.data() } as Cohort;
+                setCohort(data);
+                fetchLeaderboard(data).finally(() => setIsLoading(false));
             }
         });
+        return () => unsub();
+    }, [firestore, cohortId, fetchLeaderboard]);
 
-        return () => unsubscribe();
-    }, [firestore, cohortId, router, toast, constructLeaderboard]);
+    const handleInviteToInterview = async () => {
+        if (!firestore || !cohort || !selectedJobId) return;
+        const job = jobs.find(j => j.id === selectedJobId);
+        if (!job) return;
 
-    const handleStatusChange = async (userId: string, newStatus: CandidateStatus) => {
-        if (!firestore || !cohort) return;
-
-        toast({ title: `Updating status to ${newStatus}...` });
-
-        const cohortRef = doc(firestore, 'cohorts', cohort.id);
-        
         try {
-            await updateDoc(cohortRef, {
-                [`statuses.${userId}`]: newStatus
+            const bankSnap = await getDoc(doc(firestore, 'questionBanks', job.questionBankId));
+            if (!bankSnap.exists()) throw new Error("Question bank not found.");
+            const bank = bankSnap.data() as InterviewQuestionBank;
+
+            const batch = leaderboard.map(async (entry) => {
+                // Randomly select 5 questions per candidate
+                const selected = [...bank.questions].sort(() => 0.5 - Math.random()).slice(0, 5);
+                const attemptRef = doc(collection(firestore, 'interviewAttempts'));
+                
+                await setDoc(attemptRef, {
+                    candidateId: entry.user.id,
+                    candidateName: entry.user.name,
+                    candidateEmail: entry.user.email,
+                    jobPositionId: job.id,
+                    jobTitle: job.role,
+                    cohortId: cohort.id,
+                    status: 'pending',
+                    selectedQuestions: selected,
+                    transcripts: [],
+                    startedAt: 0,
+                    antiCheating: { tabSwitchCount: 0, speechDuration: [] }
+                });
+
+                // Notify candidate
+                const notifRef = doc(collection(firestore, `users/${entry.user.id}/notifications`));
+                await setDoc(notifRef, {
+                    title: "Shortlisted for AI Interview",
+                    message: `You've been invited to an AI Voice Interview for the ${job.role} position.`,
+                    link: `/candidate/interview/${attemptRef.id}`,
+                    isRead: false,
+                    createdAt: Date.now()
+                });
             });
 
-            const notificationRef = doc(collection(firestore, `users/${userId}/notifications`));
-            await setDoc(notificationRef, {
-                title: `Update on ${cohort.name}`,
-                message: `Your application status has been updated to: ${newStatus}.`,
-                isRead: false,
-                createdAt: Date.now(),
-                ...(newStatus === 'Hired' && { link: '/dashboard/gamification' }),
-            });
-            
-            toast({ title: "Status Updated", description: `Candidate has been notified.` });
+            await Promise.all(batch);
+            toast({ title: "Invitations Sent", description: "All candidates have been notified." });
+            setIsInviteDialogOpen(false);
         } catch (error) {
-            toast({ title: "Update Failed", description: (error as Error).message, variant: 'destructive' });
+            toast({ title: "Failed to Invite", variant: "destructive" });
         }
     };
 
+    if (isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
-    const getPerformanceTier = (score: number) => {
-        if (score >= 85) return { label: 'Excellent', color: 'bg-green-500' };
-        if (score >= 60) return { label: 'Good', color: 'bg-yellow-500' };
-        return { label: 'Needs Improvement', color: 'bg-red-500' };
-    };
-
-    const getRankIcon = (rank: number) => {
-        if (rank === 0) return <Crown className="h-5 w-5 text-yellow-400" />;
-        if (rank === 1) return <Medal className="h-5 w-5 text-gray-400" />;
-        if (rank === 2) return <Gem className="h-5 w-5 text-amber-600" />;
-        return <span className="text-sm font-bold text-muted-foreground">{rank + 1}</span>;
-    };
-    
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-        );
-    }
-    
     return (
         <div className="p-8">
-             <Button variant="ghost" onClick={() => router.push('/admin/pipeline')} className="mb-4">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Pipeline
-            </Button>
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-                <CardHeader className="px-0">
-                    <CardTitle className="text-4xl font-bold">Leaderboard: {cohort?.name}</CardTitle>
-                    <CardDescription>
-                        Results for the assigned assessment: "{cohort?.assignedAssessmentName || 'N/A'}"
-                    </CardDescription>
-                </CardHeader>
-            </motion.div>
+            <div className="flex justify-between items-center mb-8">
+                <div>
+                    <Button variant="ghost" onClick={() => router.back()} className="mb-2"><ArrowLeft className="mr-2" /> Back</Button>
+                    <h1 className="text-4xl font-bold">Cohort: {cohort?.name}</h1>
+                </div>
+                <Button onClick={() => setIsInviteDialogOpen(true)}>
+                    <Mic className="mr-2" /> Invite to AI Interview
+                </Button>
+            </div>
 
             <Card>
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-16 text-center">Rank</TableHead>
                                 <TableHead>Candidate</TableHead>
-                                <TableHead className="text-center">Score</TableHead>
-                                <TableHead>Performance</TableHead>
-                                <TableHead className="text-center">Status</TableHead>
+                                <TableHead className="text-center">Tech Score</TableHead>
+                                <TableHead className="text-center">AI Interview</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {leaderboard.map((entry, index) => (
+                            {leaderboard.map((entry) => (
                                 <TableRow key={entry.user.id}>
-                                    <TableCell className="text-center">
-                                        <div className="flex items-center justify-center h-full">
-                                            {entry.attempt ? getRankIcon(index) : '-'}
-                                        </div>
-                                    </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-3">
                                             <Avatar>
-                                                <AvatarImage src={entry.user.avatarUrl} alt={entry.user.name} />
+                                                <AvatarImage src={entry.user.avatarUrl} />
                                                 <AvatarFallback>{entry.user.name?.charAt(0)}</AvatarFallback>
                                             </Avatar>
                                             <div>
-                                                <div className="font-medium">{entry.user.name}</div>
-                                                <div className="text-sm text-muted-foreground">{entry.user.email}</div>
+                                                <p className="font-medium">{entry.user.name}</p>
+                                                <p className="text-xs text-muted-foreground">{entry.user.email}</p>
                                             </div>
                                         </div>
                                     </TableCell>
-                                     <TableCell className="text-center font-bold text-lg">
-                                        {entry.attempt ? `${Math.round(entry.attempt.finalScore!)}%` : <span className="text-muted-foreground italic text-sm">Pending</span>}
+                                    <TableCell className="text-center font-bold">
+                                        {entry.tech ? `${Math.round(entry.tech.finalScore)}%` : '-'}
                                     </TableCell>
-                                    <TableCell>
-                                         {entry.attempt ? (
-                                            <div className="flex items-center gap-2">
-                                                <div className={cn("h-2.5 w-2.5 rounded-full", getPerformanceTier(entry.attempt.finalScore!).color)}></div>
-                                                <span>{getPerformanceTier(entry.attempt.finalScore!).label}</span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-muted-foreground italic">Not Taken</span>
-                                        )}
-                                    </TableCell>
-                                     <TableCell className="text-center">
-                                        <Badge variant={entry.status === 'Yet to Take' ? 'destructive' : 'outline'} className="capitalize">{entry.status.toLowerCase()}</Badge>
+                                    <TableCell className="text-center">
+                                        {entry.interview ? (
+                                            <Badge variant={entry.interview.status === 'evaluated' ? 'default' : 'secondary'}>
+                                                {entry.interview.status === 'evaluated' ? `${entry.interview.evaluation.overall_scores.technical_knowledge}/10` : entry.interview.status}
+                                            </Badge>
+                                        ) : '-'}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <div className="flex gap-2 justify-end">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="sm">
-                                                        <Eye className="mr-2 h-4 w-4"/> View
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent>
-                                                    <DropdownMenuItem onSelect={() => router.push(`/admin/candidates/${entry.user.id}`)}>
-                                                        <UserIcon className="mr-2 h-4 w-4" /> View Profile
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem 
-                                                        onSelect={() => router.push(`/admin/assessments/results/${entry.attempt?.docId}?userId=${entry.user.id}`)}
-                                                        disabled={!entry.attempt}
-                                                    >
-                                                        <BarChart className="mr-2 h-4 w-4" /> View Details
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="outline" size="sm">Change Status</Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent>
-                                                    {(['Shortlisted', 'Under Review', 'Hired', 'Rejected'] as CandidateStatus[]).map(status => (
-                                                        <DropdownMenuItem key={status} onSelect={() => handleStatusChange(entry.user.id, status)} disabled={entry.status === status}>
-                                                            {status}
-                                                        </DropdownMenuItem>
-                                                    ))}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
+                                        <Button variant="ghost" size="sm" onClick={() => router.push(`/admin/candidates/${entry.user.id}`)}>View Profile</Button>
                                     </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
-                     {leaderboard.length === 0 && (
-                        <div className="text-center p-12 text-muted-foreground">
-                            <Users className="mx-auto h-12 w-12 mb-4" />
-                            <p>No candidates in this cohort or no results yet.</p>
-                        </div>
-                    )}
                 </CardContent>
             </Card>
+
+            <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Select Job for AI Interview</DialogTitle>
+                        <DialogDescription>Candidates will receive questions from the bank associated with this job.</DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Select onValueChange={setSelectedJobId}>
+                            <SelectTrigger><SelectValue placeholder="Choose job..." /></SelectTrigger>
+                            <SelectContent>
+                                {jobs.map(j => <SelectItem key={j.id} value={j.id}>{j.role} ({j.domain})</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsInviteDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleInviteToInterview} disabled={!selectedJobId}>Send Invitations</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

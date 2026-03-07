@@ -1,5 +1,4 @@
 
-
 export type RoleType = 'candidate' | 'recruiter' | 'admin';
 
 export interface Role {
@@ -20,24 +19,17 @@ export interface Question {
     skill: string; 
     tags: string[];
     starterCode?: string;
-    timeLimit: number; // Added this from the generate flow
-    // New fields from your schema
-    aiQualityScore?: number;
-    lastReviewedBy?: string;
-    createdBy?: string;
-    createdAt?: number;
+    timeLimit: number;
 }
-
 
 export interface UserResponse {
     questionId: string;
     skill: string;
     difficulty: 'Easy' | 'Medium' | 'Hard';
-    answer?: string; // For MCQ/short
-    code?: string; // For coding
-    language?: string; // Language used for coding question
+    answer?: string;
+    code?: string;
+    language?: string;
     timeTaken: number;
-    // The following fields are added during the scoring process
     isCorrect?: boolean; 
     testCasesPassed?: number;
     totalTestCases?: number; 
@@ -49,10 +41,10 @@ export interface Assessment {
     roleId: string;
     roleName: string;
     questions: Question[];
-    totalTimeLimit: number; // in seconds
+    totalTimeLimit: number;
     isTemplate: boolean;
     templateId?: string;
-    rootAssessmentId?: string; // For tracking retakes
+    rootAssessmentId?: string;
 }
 
 export interface AssessmentTemplate {
@@ -62,46 +54,78 @@ export interface AssessmentTemplate {
     roleId: string;
     skills: string[];
     questionCount: number;
-    duration: number; // in minutes
+    duration: number;
     difficultyMix: { easy: number; medium: number; hard: number; };
     questionIds: string[];
-    questions?: Question[]; // Now storing full questions, but optional for backward compatibility
+    questions?: Question[];
     status: 'active' | 'draft';
     version: string;
     createdBy: string;
     createdAt: number;
 }
 
-export type CandidateStatus = 'Shortlisted' | 'Under Review' | 'Hired' | 'Rejected';
+export interface JobPosition {
+    id: string;
+    role: string;
+    domain: string;
+    topics: string[];
+    difficulty: 'easy' | 'medium' | 'hard';
+    questionBankId: string;
+    createdBy: string;
+    createdAt: number;
+}
 
-// Represents a lightweight snapshot of questions taken during an attempt
-export type QuestionSnapshot = Pick<Question, 'id' | 'questionText' | 'options' | 'correctAnswer' | 'type' | 'skill' | 'difficulty' | 'starterCode' | 'testCases'>;
+export interface InterviewQuestion {
+    id: number;
+    question: string;
+    topic: string;
+    difficulty: string;
+}
 
-export interface AssessmentAttempt {
-    id: string; // The internal ID, e.g., from the assessment template or generated practice test
-    docId?: string; // The actual Firestore document ID
-    userId: string;
-    assessmentId: string; // The ID of the AssessmentTemplate or original practice assessment ID
-    roleId: string;
-    startedAt: number; // timestamp
-    submittedAt?: number; // timestamp
-    responses: UserResponse[];
-    rootAssessmentId?: string; // ID to group all attempts of the same assessment
-    questionSnapshots?: QuestionSnapshot[]; // Snapshot of questions at time of attempt
-    // --- Post-Submission Fields ---
-    finalScore?: number;
-    skillScores?: Record<string, number | 'Not available'>; 
-    aiFeedback?: {
-      overall: string;
-      skills: {
-        skill: string;
-        score: number | string;
-        advice: string;
-      }[];
-      suggestions: string[];
-    } | null;
-    questions?: Question[]; // Only used for scoring context, not saved
-    cohortId?: string;
+export interface InterviewQuestionBank {
+    id: string;
+    jobPositionId: string;
+    questions: InterviewQuestion[];
+    createdBy: string;
+    createdAt: number;
+}
+
+export interface VoiceInterviewAttempt {
+    id: string;
+    candidateId: string;
+    candidateName?: string;
+    candidateEmail?: string;
+    jobPositionId: string;
+    jobTitle?: string;
+    cohortId: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'evaluated';
+    selectedQuestions: InterviewQuestion[];
+    transcripts: string[];
+    startedAt: number;
+    completedAt?: number;
+    timeTaken?: number;
+    antiCheating: {
+        tabSwitchCount: number;
+        speechDuration: number[];
+    };
+    evaluation?: InterviewEvaluation;
+}
+
+export interface InterviewEvaluation {
+    evaluation: {
+        question: string;
+        technical_score: number;
+        communication_score: number;
+        confidence_score: number;
+        remarks: string;
+    }[];
+    overall_scores: {
+        technical_knowledge: number;
+        communication: number;
+        confidence: number;
+    };
+    final_recommendation: 'Strong Hire' | 'Hire' | 'Borderline' | 'Reject';
+    summary: string;
 }
 
 export interface User {
@@ -116,82 +140,27 @@ export interface User {
   resumeUrl?: string;
   xp?: number;
   badges?: string[];
-  createdAt?: {
-    seconds: number;
-    nanoseconds: number;
-  } | number; // Allow number for client-side creation
-  candidateSpecific?: CandidateSpecificProfile;
-  recruiterSpecific?: RecruiterSpecificProfile;
-  analysis?: {
-    summary?: AnalysisSummary;
-  };
+  createdAt?: any;
+  candidateSpecific?: any;
+  recruiterSpecific?: any;
+  analysis?: any;
 }
 
-export interface CandidateSpecificProfile {
-    collegeOrUniversity?: string;
-    currentCompanyOrInternship?: string;
-    experienceLevel?: 'Fresher' | 'Intermediate' | 'Experienced';
-    yearsOfExperience?: number;
-    skills?: string[];
-    bio?: string;
-    locationPreferences?: string[];
-    experiences?: WorkExperience[];
-    projects?: Project[];
-    achievements?: Achievement[];
-    // New fields for persisted AI results
-    skillMatrix?: SkillMatrixResult;
-    learningPlan?: LearningResource[];
+export interface AssessmentAttempt {
+    id: string;
+    docId?: string;
+    userId: string;
+    assessmentId: string;
+    roleId: string;
+    startedAt: number;
+    submittedAt?: number;
+    responses: UserResponse[];
+    rootAssessmentId?: string;
+    questionSnapshots?: any[];
+    finalScore?: number;
+    skillScores?: Record<string, number | 'Not available'>; 
+    aiFeedback?: any;
 }
-
-export interface RecruiterSpecificProfile {
-    companyName?: string;
-    designation?: string;
-    mobileNumber?: string;
-    companyWebsite?: string;
-    yearsOfExperience?: number;
-    hiringFocus?: string[];
-    notes?: string;
-}
-
-export interface WorkExperience {
-    title: string;
-    company: string;
-    startDate: string;
-    endDate?: string;
-    description: string;
-}
-
-export interface Project {
-    title: string;
-    description: string;
-    url?: string;
-}
-
-export interface Achievement {
-    title: string;
-    description?: string;
-}
-
-export interface AnalysisSummary {
-  topRoles: { role: string; score: number }[];
-  readinessScore: number;
-  gapAnalysis: string[];
-  suggestedLearning: { task: string; estWeeks: number }[];
-  resumeHealth: {
-    contact: boolean;
-    projects: boolean;
-    skills: boolean;
-    keywords: boolean;
-  };
-}
-
-export type CodeExecutionResult = {
-    status: 'Passed' | 'Failed' | 'Error' | 'Time Limit Exceeded';
-    output: string;
-    expectedOutput?: string;
-    time: string;
-    memory: string;
-};
 
 export interface Cohort {
     id: string;
@@ -199,11 +168,11 @@ export interface Cohort {
     createdBy: string;
     createdAt: number;
     candidateIds: string[];
-    candidates?: User[]; // Populated on the client
+    candidates?: User[];
     assignedAssessmentId?: string;
-    assignedAssessmentName?: string; // For display
+    assignedAssessmentName?: string;
     assessmentAssignedAt?: number;
-    statuses?: { [candidateId: string]: CandidateStatus }; // To store status per candidate
+    statuses?: { [candidateId: string]: any };
 }
 
 export interface Notification {
@@ -215,28 +184,10 @@ export interface Notification {
     createdAt: number;
 }
 
-// AI-specific result types
-export interface SkillMatrix {
-    skill: string;
-    proficiency: number;
-    description: string;
-}
-
-export interface LearningPlanItem {
-    task: string;
-    category: string;
-    estHours: number;
-}
-
-export interface SkillMatrixResult {
-    skillMatrix: SkillMatrix[];
-    learningPlan: LearningPlanItem[];
-}
-
-export interface LearningResource {
-    title: string;
-    type: 'article' | 'video';
-    url: string;
-    description: string;
-    skill: string;
-}
+export type CodeExecutionResult = {
+    status: 'Passed' | 'Failed' | 'Error' | 'Time Limit Exceeded';
+    output: string;
+    expectedOutput?: string;
+    time: string;
+    memory: string;
+};

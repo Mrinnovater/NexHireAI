@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -29,115 +30,63 @@
       },
       "required": ["name", "subSkills"]
     },
-    "Question": {
-      "title": "Assessment Question",
-      "description": "A single question within a skill.",
-      "type": "object",
-      "properties": {
-        "questionText": { "type": "string" },
-        "type": { "type": "string", "enum": ["mcq", "short", "coding", "scenario", "debugging"] },
-        "options": { "type": "array", "items": { "type": "string" } },
-        "correctAnswer": { "type": "string" },
-        "testCases": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "input": { "type": "string" },
-              "expectedOutput": { "type": "string" }
-            }
-          }
-        },
-        "difficulty": { "type": "string", "enum": ["Easy", "Medium", "Hard"] },
-        "skill": { "type": "string" },
-        "tags": { "type": "array", "items": { "type": "string" } },
-        "aiQualityScore": { "type": "number" },
-        "lastReviewedBy": { "type": "string" },
-        "createdBy": { "type": "string" },
-        "createdAt": { "type": "number" }
-      },
-      "required": ["questionText", "type", "difficulty", "skill"]
-    },
-    "AssessmentTemplate": {
-      "title": "Assessment Template",
-      "description": "A configurable template for generating assessments.",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "role": { "type": "string" },
-        "skills": { "type": "array", "items": { "type": "string" } },
-        "questionCount": { "type": "number" },
-        "duration": { "type": "number" },
-        "difficultyMix": {
-          "type": "object",
-          "properties": {
-            "easy": { "type": "number" },
-            "medium": { "type": "number" },
-            "hard": { "type": "number" }
-          }
-        },
-        "questionIds": { "type": "array", "items": { "type": "string" } },
-        "status": { "type": "string", "enum": ["active", "draft"] },
-        "version": { "type": "string" },
-        "createdBy": { "type": "string" },
-        "createdAt": { "type": "number" }
-      },
-      "required": ["name", "role", "status", "questionCount"]
-    },
-    "AssessmentAttempt": {
-      "title": "User Assessment Attempt",
-      "description": "Records a user's attempt at an assessment.",
-      "type": "object",
-      "properties": {
-        "roleId": { "type": "string" },
-        "assessmentId": { "type": "string" },
-        "startedAt": { "type": "number" },
-        "submittedAt": { "type": "number" },
-        "responses": {
-          "type": "array",
-          "items": { "$ref": "#/backend/entities/UserResponse" }
-        },
-        "finalScore": { "type": "number" },
-        "skillScores": { "type": "object" },
-        "aiFeedback": { "type": "string" },
-        "cohortId": { "type": "string" }
-      },
-      "required": ["roleId", "startedAt", "assessmentId"]
-    },
-    "UserResponse": {
-      "title": "User Response",
-      "description": "A user's single response within an assessment.",
-      "type": "object",
-      "properties": {
-        "questionId": { "type": "string" },
-        "skill": { "type": "string" },
-        "difficulty": { "type": "string", "enum": ["Easy", "Medium", "Hard"] },
-        "answer": { "type": "string" },
-        "code": { "type": "string" },
-        "timeTaken": { "type": "number" },
-        "isCorrect": { "type": "boolean" },
-        "testCasesPassed": { "type": "number" },
-        "totalTestCases": { "type": "number" }
-      },
-      "required": ["questionId", "timeTaken", "difficulty"]
-    },
-    "Cohort": {
-        "title": "Recruitment Cohort",
-        "description": "A group of shortlisted candidates for a specific role or pipeline stage.",
+    "JobPosition": {
+        "title": "Job Position",
+        "description": "Represents a specific job opening created by a recruiter.",
         "type": "object",
         "properties": {
-            "name": { "type": "string" },
+            "role": { "type": "string" },
+            "domain": { "type": "string" },
+            "topics": { "type": "array", "items": { "type": "string" } },
+            "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] },
+            "questionBankId": { "type": "string" },
             "createdBy": { "type": "string" },
-            "createdAt": { "type": "number" },
-            "candidateIds": { "type": "array", "items": { "type": "string" } },
-            "assignedAssessmentId": { "type": "string" },
-            "assessmentAssignedAt": { "type": "number" },
-            "statuses": {
-              "type": "object",
-              "description": "A map of candidateId to their status in this cohort."
-            }
+            "createdAt": { "type": "number" }
         },
-        "required": ["name", "createdBy", "createdAt", "candidateIds"]
+        "required": ["role", "domain", "difficulty", "createdBy"]
+    },
+    "InterviewQuestionBank": {
+        "title": "Interview Question Bank",
+        "description": "A collection of AI-generated interview questions for a job position.",
+        "type": "object",
+        "properties": {
+            "jobPositionId": { "type": "string" },
+            "questions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": { "type": "number" },
+                        "question": { "type": "string" },
+                        "topic": { "type": "string" },
+                        "difficulty": { "type": "string" }
+                    }
+                }
+            }
+        }
+    },
+    "VoiceInterviewAttempt": {
+        "title": "Voice Interview Attempt",
+        "description": "Records a candidate's AI voice interview session.",
+        "type": "object",
+        "properties": {
+            "candidateId": { "type": "string" },
+            "jobPositionId": { "type": "string" },
+            "cohortId": { "type": "string" },
+            "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "evaluated"] },
+            "selectedQuestions": { "type": "array" },
+            "transcripts": { "type": "array", "items": { "type": "string" } },
+            "startedAt": { "type": "number" },
+            "completedAt": { "type": "number" },
+            "antiCheating": {
+                "type": "object",
+                "properties": {
+                    "tabSwitchCount": { "type": "number" },
+                    "speechDuration": { "type": "array", "items": { "type": "number" } }
+                }
+            },
+            "evaluation": { "type": "object" }
+        }
     },
     "Notification": {
         "title": "User Notification",
@@ -173,17 +122,17 @@
       "schema": { "$ref": "#/backend/entities/Role" },
       "description": "Stores the master list of professional roles and their sub-skills."
     },
-    "/questionBank/{questionId}": {
-      "schema": { "$ref": "#/backend/entities/Question" },
-      "description": "Centralized repository for all assessment questions."
+    "/jobs/{jobId}": {
+        "schema": { "$ref": "#/backend/entities/JobPosition" },
+        "description": "Stores specific job openings."
     },
-    "/assessments/{assessmentId}": {
-      "schema": { "$ref": "#/backend/entities/AssessmentTemplate" },
-      "description": "Stores assessment templates created by admins."
+    "/questionBanks/{bankId}": {
+        "schema": { "$ref": "#/backend/entities/InterviewQuestionBank" },
+        "description": "Stores pools of interview questions."
     },
-    "/cohorts/{cohortId}": {
-        "schema": { "$ref": "#/backend/entities/Cohort" },
-        "description": "Stores recruitment cohorts (shortlists)."
+    "/interviewAttempts/{attemptId}": {
+        "schema": { "$ref": "#/backend/entities/VoiceInterviewAttempt" },
+        "description": "Stores all candidate interview sessions centrally for recruiter access."
     }
   }
 }

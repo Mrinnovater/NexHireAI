@@ -2,7 +2,7 @@
 'use client';
 
 import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, NotebookPen, ShieldCheck, BarChart, FolderKanban, Settings, User } from "lucide-react";
+import { LayoutDashboard, Users, NotebookPen, ShieldCheck, BarChart, FolderKanban, Settings, User, Mic } from "lucide-react";
 import { SidebarButton } from "@/components/dashboard/SidebarButton";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,6 +17,7 @@ const adminNavItems = [
   { href: "/admin/assessments", icon: <NotebookPen />, label: "Assessments" },
   { href: "/admin/roles", icon: <ShieldCheck />, label: "Roles & Skills" },
   { href: "/admin/pipeline", icon: <FolderKanban />, label: "Pipeline" },
+  { href: "/admin/jobs/new", icon: <Mic />, label: "Interview Setup" },
 ];
 
 const adminSettingsItems = [

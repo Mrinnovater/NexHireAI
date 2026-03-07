@@ -8,7 +8,7 @@ import { initializeFirebase } from '@/firebase';
 import type { Cohort, User, AssessmentAttempt, CandidateStatus, JobPosition, InterviewQuestionBank } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft, Crown, Medal, Gem, Users, Eye, BarChart, User as UserIcon, Mic, Send } from 'lucide-react';
+import { Loader2, ArrowLeft, Crown, Medal, Gem, Users, Eye, BarChart, User as UserIcon, Mic, Send, PlusCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -205,16 +205,25 @@ export default function LeaderboardPage() {
                         <DialogDescription>Candidates will receive questions from the bank associated with this job.</DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
-                        <Select onValueChange={setSelectedJobId}>
-                            <SelectTrigger><SelectValue placeholder="Choose job..." /></SelectTrigger>
-                            <SelectContent>
-                                {jobs.map(j => <SelectItem key={j.id} value={j.id}>{j.role} ({j.domain})</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        {jobs.length > 0 ? (
+                            <Select onValueChange={setSelectedJobId}>
+                                <SelectTrigger><SelectValue placeholder="Choose job..." /></SelectTrigger>
+                                <SelectContent>
+                                    {jobs.map(j => <SelectItem key={j.id} value={j.id}>{j.role} ({j.domain})</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        ) : (
+                            <div className="text-center py-6 border-2 border-dashed rounded-lg">
+                                <p className="text-sm text-muted-foreground mb-4">No jobs created yet.</p>
+                                <Button variant="outline" size="sm" onClick={() => router.push('/admin/jobs/new')}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Create Job Position
+                                </Button>
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setIsInviteDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleInviteToInterview} disabled={!selectedJobId}>Send Invitations</Button>
+                        <Button onClick={handleInviteToInterview} disabled={!selectedJobId || jobs.length === 0}>Send Invitations</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

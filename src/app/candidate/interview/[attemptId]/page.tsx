@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { Mic, MicOff, Play, Send, Loader2, AlertCircle, Volume2 } from 'lucide-react';
 import { Waveform } from '@/components/interview/Waveform';
 import { evaluateVoiceInterview } from '@/ai/flows/evaluate-voice-interview-flow';
@@ -59,7 +60,7 @@ export default function InterviewRoom() {
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, [firestore, attemptId]);
+    }, [firestore, attemptId, router]);
 
     // Initialize Speech Recognition
     useEffect(() => {

@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CodeEditor } from '@/components/assessment/CodeEditor';
+import { cn } from '@/lib/utils';
 
 export default function AdminAssessmentResultPage() {
     const { user } = useAuth();
@@ -42,12 +43,10 @@ export default function AdminAssessmentResultPage() {
                     setCurrentAttempt(techData);
 
                     // Fetch Interview Attempt for this cohort if it exists
-                    if (techData.cohortId || true) { // Defaulting search for candidate's latest interview
-                        const interviewQ = query(collection(firestore, 'interviewAttempts'), where('candidateId', '==', userId), orderBy('completedAt', 'desc'));
-                        const interviewSnap = await getDocs(interviewQ);
-                        if (!interviewSnap.empty) {
-                            setInterviewAttempt(interviewSnap.docs[0].data() as VoiceInterviewAttempt);
-                        }
+                    const interviewQ = query(collection(firestore, 'interviewAttempts'), where('candidateId', '==', userId), orderBy('completedAt', 'desc'));
+                    const interviewSnap = await getDocs(interviewQ);
+                    if (!interviewSnap.empty) {
+                        setInterviewAttempt(interviewSnap.docs[0].data() as VoiceInterviewAttempt);
                     }
                 }
             } catch (error) {
@@ -75,7 +74,7 @@ export default function AdminAssessmentResultPage() {
         <div className="p-8 space-y-8">
             <div className="flex justify-between items-center">
                 <Button variant="ghost" onClick={() => router.back()}><ArrowLeft className="mr-2" /> Back</Button>
-                <h1 className="text-4xl font-bold">Candidate Report: {userId}</h1>
+                <h1 className="text-4xl font-bold">Candidate Report</h1>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

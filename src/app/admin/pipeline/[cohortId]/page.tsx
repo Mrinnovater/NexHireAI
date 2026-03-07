@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -229,8 +230,8 @@ export default function LeaderboardPage() {
 
             {/* Detailed Interview Report Dialog */}
             <Dialog open={!!selectedInterview} onOpenChange={(open) => !open && setSelectedInterview(null)}>
-                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-                    <DialogHeader className="p-6 bg-secondary/30">
+                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+                    <DialogHeader className="p-6 bg-secondary/30 flex-shrink-0">
                         <DialogTitle className="text-2xl flex items-center gap-2">
                             <BrainCircuit className="text-primary h-6 w-6" />
                             Interview Report: {selectedInterview?.candidateName}
@@ -238,7 +239,7 @@ export default function LeaderboardPage() {
                         <DialogDescription>AI-generated technical and communication evaluation</DialogDescription>
                     </DialogHeader>
                     
-                    <ScrollArea className="flex-grow">
+                    <ScrollArea className="flex-grow overflow-y-auto border-y">
                         <div className="p-6 space-y-8">
                             {/* Summary Section */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
@@ -285,24 +286,42 @@ export default function LeaderboardPage() {
                             {/* Q&A Breakdown */}
                             <div className="space-y-4">
                                 <h3 className="text-xl font-bold flex items-center gap-2"><Mic className="h-5 w-5" /> Question Breakdown</h3>
-                                <div className="grid gap-4">
+                                <div className="grid gap-6">
                                     {selectedInterview?.evaluation?.evaluation.map((ev, i) => (
-                                        <Card key={i} className="overflow-hidden">
+                                        <Card key={i} className="overflow-hidden border-primary/10 shadow-sm hover:border-primary/30 transition-colors">
                                             <div className="bg-muted/50 p-4 border-b">
-                                                <p className="font-bold text-sm">Question {i + 1}</p>
-                                                <p className="text-lg mt-1">{ev.question}</p>
+                                                <div className="flex justify-between items-center">
+                                                    <p className="font-bold text-sm text-primary uppercase tracking-tighter">Question {i + 1}</p>
+                                                    <Badge variant="secondary" className="text-[10px]">{selectedInterview.selectedQuestions[i]?.topic || 'Technical'}</Badge>
+                                                </div>
+                                                <p className="text-lg font-semibold mt-2">{ev.question}</p>
                                             </div>
                                             <CardContent className="p-4 space-y-4">
-                                                <div className="bg-background border rounded-lg p-3 italic text-sm text-muted-foreground">
-                                                    "{selectedInterview.transcripts[i] || 'No verbal answer recorded.'}"
+                                                <div>
+                                                    <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">Candidate's Verbal Response</Label>
+                                                    <div className="bg-background border rounded-lg p-4 italic text-sm text-foreground/80 leading-relaxed shadow-inner">
+                                                        "{selectedInterview.transcripts[i] || 'No verbal answer recorded.'}"
+                                                    </div>
                                                 </div>
-                                                <div className="flex flex-wrap gap-3">
-                                                    <Badge variant="outline" className="gap-1">Technical: <span className="font-bold text-primary">{ev.technical_score}/10</span></Badge>
-                                                    <Badge variant="outline" className="gap-1">Communication: <span className="font-bold text-primary">{ev.communication_score}/10</span></Badge>
-                                                    <Badge variant="outline" className="gap-1">Confidence: <span className="font-bold text-primary">{ev.confidence_score}/10</span></Badge>
+                                                
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                    <div className="p-2 border rounded bg-secondary/10 text-center">
+                                                        <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Technical</p>
+                                                        <span className="font-bold text-primary">{ev.technical_score}/10</span>
+                                                    </div>
+                                                    <div className="p-2 border rounded bg-secondary/10 text-center">
+                                                        <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Communication</p>
+                                                        <span className="font-bold text-primary">{ev.communication_score}/10</span>
+                                                    </div>
+                                                    <div className="p-2 border rounded bg-secondary/10 text-center">
+                                                        <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Confidence</p>
+                                                        <span className="font-bold text-primary">{ev.confidence_score}/10</span>
+                                                    </div>
                                                 </div>
-                                                <div className="text-xs text-muted-foreground bg-muted/20 p-2 rounded">
-                                                    <span className="font-bold uppercase mr-2">AI Remarks:</span> {ev.remarks}
+
+                                                <div className="p-3 bg-primary/5 rounded-md border border-primary/10">
+                                                    <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">AI Feedback & Reasoning</Label>
+                                                    <p className="text-sm text-foreground/90">{ev.remarks}</p>
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -312,7 +331,7 @@ export default function LeaderboardPage() {
                         </div>
                     </ScrollArea>
                     
-                    <DialogFooter className="p-6 bg-secondary/30">
+                    <DialogFooter className="p-6 bg-secondary/30 flex-shrink-0">
                         <Button variant="ghost" onClick={() => setSelectedInterview(null)}>Close Report</Button>
                         <Button onClick={() => router.push(`/admin/candidates/${selectedInterview?.candidateId}`)}>View Full Profile</Button>
                     </DialogFooter>

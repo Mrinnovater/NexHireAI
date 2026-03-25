@@ -1,0 +1,138 @@
+
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user of the application.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["candidate", "recruiter", "admin"] },
+        "avatarUrl": { "type": "string", "format": "uri" },
+        "linkedinUrl": { "type": "string", "format": "uri" },
+        "githubUrl": { "type": "string", "format": "uri" },
+        "portfolioUrl": { "type": "string", "format": "uri" },
+        "resumeUrl": { "type": "string", "format": "uri" },
+        "xp": { "type": "number" },
+        "badges": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "Role": {
+      "title": "Assessment Role",
+      "description": "Defines a professional role and its associated skills for assessments.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "subSkills": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name", "subSkills"]
+    },
+    "JobPosition": {
+        "title": "Job Position",
+        "description": "Represents a specific job opening created by a recruiter.",
+        "type": "object",
+        "properties": {
+            "role": { "type": "string" },
+            "domain": { "type": "string" },
+            "topics": { "type": "array", "items": { "type": "string" } },
+            "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] },
+            "questionBankId": { "type": "string" },
+            "createdBy": { "type": "string" },
+            "createdAt": { "type": "number" }
+        },
+        "required": ["role", "domain", "difficulty", "createdBy"]
+    },
+    "InterviewQuestionBank": {
+        "title": "Interview Question Bank",
+        "description": "A collection of AI-generated interview questions for a job position.",
+        "type": "object",
+        "properties": {
+            "jobPositionId": { "type": "string" },
+            "questions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": { "type": "number" },
+                        "question": { "type": "string" },
+                        "topic": { "type": "string" },
+                        "difficulty": { "type": "string" }
+                    }
+                }
+            }
+        }
+    },
+    "VoiceInterviewAttempt": {
+        "title": "Voice Interview Attempt",
+        "description": "Records a candidate's AI voice interview session.",
+        "type": "object",
+        "properties": {
+            "candidateId": { "type": "string" },
+            "jobPositionId": { "type": "string" },
+            "cohortId": { "type": "string" },
+            "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "evaluated"] },
+            "selectedQuestions": { "type": "array" },
+            "transcripts": { "type": "array", "items": { "type": "string" } },
+            "startedAt": { "type": "number" },
+            "completedAt": { "type": "number" },
+            "antiCheating": {
+                "type": "object",
+                "properties": {
+                    "tabSwitchCount": { "type": "number" },
+                    "speechDuration": { "type": "array", "items": { "type": "number" } }
+                }
+            },
+            "evaluation": { "type": "object" }
+        }
+    },
+    "Notification": {
+        "title": "User Notification",
+        "description": "A notification sent to a user's dashboard.",
+        "type": "object",
+        "properties": {
+            "title": { "type": "string" },
+            "message": { "type": "string" },
+            "link": { "type": "string", "format": "uri" },
+            "isRead": { "type": "boolean" },
+            "createdAt": { "type": "number" }
+        },
+        "required": ["title", "message", "isRead", "createdAt"]
+    }
+  },
+  "auth": {
+    "providers": ["password", "google.com"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/backend/entities/User" },
+      "description": "Stores user profile information."
+    },
+    "/users/{userId}/assessments/{assessmentId}": {
+      "schema": { "$ref": "#/backend/entities/AssessmentAttempt" },
+      "description": "Stores a user's individual assessment attempts."
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+        "schema": { "$ref": "#/backend/entities/Notification" },
+        "description": "Stores notifications for a specific user."
+    },
+    "/roles/{roleId}": {
+      "schema": { "$ref": "#/backend/entities/Role" },
+      "description": "Stores the master list of professional roles and their sub-skills."
+    },
+    "/jobs/{jobId}": {
+        "schema": { "$ref": "#/backend/entities/JobPosition" },
+        "description": "Stores specific job openings."
+    },
+    "/questionBanks/{bankId}": {
+        "schema": { "$ref": "#/backend/entities/InterviewQuestionBank" },
+        "description": "Stores pools of interview questions."
+    },
+    "/interviewAttempts/{attemptId}": {
+        "schema": { "$ref": "#/backend/entities/VoiceInterviewAttempt" },
+        "description": "Stores all candidate interview sessions centrally for recruiter access."
+    }
+  }
+}
